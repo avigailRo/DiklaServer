@@ -78,28 +78,29 @@ module.exports = {
     remove: async (req, res) => {
         const orderItemId = req.params.id
         const validOrderItemId = mongoose.Types.ObjectId(orderItemId);
-        const orderItem = await OrderItem.findById(validOrderItemId).then((orderItem) => {
+        const orderItem = await OrderItem.findById(validOrderItemId)
             if (!orderItem) {
                 console.log("jhh");
                 return res.status(404).send({ message: `orderItem not found!` })
             }
-        })
+    
+        console.log(orderItem,"kjjjjjjjjjjj");
         // Step 2: Find the Order by the orderItem's order field
-        const order = await Order.findById(orderItem.order).then((order) => {
+        const order = await Order.findById(orderItem.order._id)
             if (!order) {
                 return res.status(404).send({ message: `order not found!` })
             }
-        })
+    
         console.log(order, "mmm");
         // Step 3: Remove the OrderItem from the orderItems array
-        order.orderItems.pull(orderItem);
+        order.orderItem.pull(orderItem);
 
         // Step 4: Save the updated Order
         await order.save();
 
         // Step 5: Delete the OrderItem
         await orderItem.remove().then(() => {
-            res.status(200).send(`Create order succeed`)
+            res.status(200).send(`delete orderItem succeed`)
         })
 
             .catch((error) => {

@@ -13,8 +13,8 @@ module.exports = {
     register:async (req, res) => {
         console.log("dd");
         console.log(req.body);
-        const { email, password ,userName} = req.body
-        console.log(email, password ,userName);
+        const { email, password ,username,userName} = req.body
+        console.log(email, password ,username);
         User.find({ email: { $eq: email } })
             .then(users => {
                 if (users.length > 0) {
@@ -34,6 +34,7 @@ module.exports = {
                     const user = new User({
                         email,
                         password: hash,
+                        username,
                         userName
                     })
                     console.log(user,"dff");
@@ -55,8 +56,7 @@ module.exports = {
                 return res.status(500).send({ error: error.message })
             })
     },
-
-    login: (req, res) => {
+    login:async (req, res) => {
 const email=req.params.email;
 const password=req.params.password;
         User.find({ email: { $eq: email } })

@@ -9,7 +9,7 @@ const orderItemRouter = require('./api/routes/orderItem')
 const petipurRouter = require('./api/routes/petipur')
 const cors = require('cors');
 
-const { logUrl, checkAuth } = require('./api/middlewares')
+const {logUrl,checkAuth } = require('./api/middlewares')
 
 const app = express()
 
@@ -63,7 +63,7 @@ app.post('/id/post', (req, res) => {
 })
 
 app.use('/users', userRouter)
-app.use('/categories', checkAuth, categoryRouter)
+app.use('/categories', categoryRouter)
 app.use('/orders', orderRouter)
 app.use('/orderItems', orderItemRouter)
 app.use('/petipurs', petipurRouter)

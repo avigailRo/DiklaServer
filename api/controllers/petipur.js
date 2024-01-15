@@ -66,7 +66,7 @@ module.exports = {
 
    
     create: (req, res) => {
-
+console.log("kkk")
         // console.log(req.file);
 
         //req.file מתוך ה path שליפת המאפיין

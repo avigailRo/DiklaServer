@@ -2,7 +2,8 @@ const Order = require('../models/order')
 const Category = require('../models/category')
 const User = require('../models/user')
 const OrderItem = require('../models/user')
-
+const Petipur = require('../models/petipur')
+const mongoose = require('mongoose')
 module.exports = {
 
     getById: (req, res) => {
@@ -16,7 +17,12 @@ module.exports = {
             })
     },
     getByUserId: (req, res) => {
-        Order.find({ user:req.params.id }).populate({ path: 'orderItem', select: 'title description content' })
+        Order.find({ user: req.params.userId }).populate({
+            path: 'orderItem', populate: {
+                path: 'petipur',
+                model: 'Petipur'
+            }, select: 'petipur user order count isPayment'
+        })
             .then(user => {
                 if (!user) {
                     return res.status(404).json({ message: `User not found!` })
@@ -29,7 +35,7 @@ module.exports = {
     },
 
     create: (req, res) => {
-        const userId=req.params.userId   
+        const userId = req.params.userId
         User.findById(userId)
             .then((user) => {
                 if (!user) {
@@ -38,9 +44,9 @@ module.exports = {
 
                 const order = new Order({
                     user,
-                    orderItem:[],
-                    date:new Date(),
-                    isPayment:false
+                    orderItem: [],
+                    date: new Date(),
+                    isPayment: false
                 })
 
                 return order.save()
@@ -56,39 +62,81 @@ module.exports = {
             })
     },
 
-    payment: (req, res) => {
-        // js - json
-        // const child = { name: "aaa", age: 5 }
-        // const name = child.name \ child['name']
-        // const age = child.age
-        // const { name, age } = child
+    payment: async (req, res) => {
+        const orderId = req.params.id;
+        try {
+            // מציאת ההזמנה וקבלת ה orderItems
+            const order = await Order.findById(orderId).populate('orderItem');
 
-        //react
-        //const {a, b, c} = props
+            if (!order) {
+                return res.status(404).send({ message: `'Order not found!'` })
 
-        const orderId = req.params.id
+            }
 
-        Order.findById(_id)
-            .then(order => {
-                if (order.userId._id != req.params.userId) {
-                    return res.status(400).send({ message: 'Connot payment this order!' })
+            // ללולאה על כל orderItem בהזמנה ועדכון ה-petipur המתאים
+            for (const orderItem of order.orderItem) {
+                const petipurId = orderItem.petipur;
+                const count = orderItem.count;
+
+                // מציאת ה-petipur ועדכון ה-amount
+                const petipur = await Petipur.findById(petipurId._id);
+                if (!petipur) {
+                    return res.status(404).send({ message: 'Petipur not found!' })
                 }
+                if (petipur.amount < count)
+                    return res.status(409).send({ message: 'Not enough petit fours !' })
 
+                // עדכון ה-amount על פי ה-count ב-orderItem
+                petipur.amount -= count;
 
+                // שמירה שוב למסד הנתונים
+                await petipur.save();
+            }
+            order.orderItem = [];
+            await order.save().then(() => {
+                res.status(200).send(`Payment completed successfully!`)
+            })
+        } catch (error) {
+            res.status(500).send({ error: error.message })
+        }
+    },
+    calculatePaymentAmount: async (req, res) => {
+        const orderId = req.params.id;
+        try {
+            // מציאת ההזמנה וקבלת ה orderItems
+            const order = await Order.findById(orderId).populate('orderItem');
 
-                return Order.findOneAndUpdate(
-                    { _id: orderId },
-                    { $set: { isPayment: true } },
-                    { new: true } // הפרמטר new מחזיר את הרשומה המעודכנת
-                );
-            })
-            .then((order) => {
-                res.status(200).send(order)
-            })
-            .catch((error) => {
-                res.status(500).send({ error: error.message })
-            })
+            if (!order) {
+                return res.status(404).send({ message: 'Order not found!' })
+            }
+
+            let totalPaymentAmount = 0;
+
+            // ללולאה על כל orderItem בהזמנה וחישוב סכום התשלום לפי מחיר ה-petipur והכמות
+            for (const orderItem of order.orderItem) {
+                const petipurId = orderItem.petipur;
+                const count = orderItem.count;
+
+                // מציאת ה-petipur
+                const petipur = await Petipur.findById(petipurId._id);
+                if (!petipur) {
+                    return res.status(404).send({ message: 'petipur not found!' })
+                }
+                console.log(petipur, "fsa");
+                // חישוב סכום התשלום לפי מחיר ה-petipur והכמות
+                const itemPaymentAmount = petipur.price * count;
+
+                // חיבור לסכום הכללי
+                totalPaymentAmount += itemPaymentAmount;
+            }
+
+            console.log('Total Payment Amount:', totalPaymentAmount);
+
+            return res.status(200).send({ "totalPaymentAmount": totalPaymentAmount })
+
+        } catch (error) {
+            res.status(500).send({ error: error.message })
+        }
     }
 
-                
 }
