@@ -1,6 +1,8 @@
 const User = require('../models/user')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const Order = require('../models/order')
+const mongoose = require('mongoose')
 
 module.exports = {
 
@@ -10,17 +12,18 @@ module.exports = {
             .catch((error) => { res.status(404).send({ message: error.message }) })
     },
 
-    register:async (req, res) => {
+    register: async (req, res) => {
         console.log("dd");
         console.log(req.body);
-        const { email, password ,username,userName} = req.body
-        console.log(email, password ,username);
+        const { email, password, username, userName } = req.body;
+        
+        // בדיקה אם יש משתמש קיים עם האימייל
         User.find({ email: { $eq: email } })
             .then(users => {
                 if (users.length > 0) {
-                    return res.status(409).send({ message: 'Email is already exists' })
+                    return res.status(409).send({ message: 'Email is already exists' });
                 }
-                console.log("dd");
+        
                 //bcrypt.hash - יוצרת מחרוזת שמצפינה את האובייקט שנשלח אליה
                 //נשתמש בה ע"מ ליצור מחרוזת מוצפנת לסיסמה ואותה נשמור במסד
                 //הפונקציה מקבלת שלשה ארגומנטים
@@ -29,36 +32,65 @@ module.exports = {
                 //3. פונקציית callback
                 bcrypt.hash(password, 10, (error, hash) => {
                     if (error) {
-                        return res.status(500).send({ error: error.message })
+                        return res.status(500).send({ error: error.message });
                     }
+        
                     const user = new User({
                         email,
                         password: hash,
                         username,
                         userName
-                    })
-                    console.log(user,"dff");
-                      user.save().catch(error => {
-                        console.log(error);
-                        return res.status(404).send({ error: error.message })
-                    })
-                })
+                    });
+        
+                    console.log(user, "dff");
+        
+                    user.save()
+                        .then(savedUser => {
+                            const token = jwt.sign({ email, password }, process.env.SECRET, {});
+        
+                            const userId = savedUser._id;
+                            const validuserId = mongoose.Types.ObjectId(savedUser._id);
+        
+                            console.log(validuserId);
+        
+                            const order = new Order({
+                                user: validuserId,
+                                orderItem: [],
+                                date: new Date(),
+                                isPayment: false
+                            });
+        
+                            order.save()
+                                .then(savedOrder => {
+                                    User.findByIdAndUpdate(
+                                        { _id: validuserId },
+                                        { $push: { orders: savedOrder._id } },
+                                        { new: true }
+                                    )
+                                        .then(() => {
+                                            return res.status(200).send({ userId: validuserId, user: savedUser, token });
+                                        })
+                                        .catch(orderError => {
+                                            res.status(500).send({ error: orderError.message });
+                                        });
+                                })
+                                .catch(orderError => {
+                                    res.status(500).send({ error: orderError.message });
+                                });
+                        })
+                        .catch(userError => {
+                            res.status(500).send({ error: userError.message });
+                        });
+                });
             })
-            .then((user) => {
-                return res.status(200).send({ user })
-            })
-            .catch(error => {
-                console.log(error);
-                return res.status(404).send({ error: error.message })
-            })
-            .catch(error => {
-                console.log(error);
-                return res.status(500).send({ error: error.message })
-            })
+            .catch(findError => {
+                console.log(findError);
+                return res.status(500).send({ error: findError.message });
+            });
     },
-    login:async (req, res) => {
-const email=req.params.email;
-const password=req.params.password;
+    login: async (req, res) => {
+        const email = req.params.email;
+        const password = req.params.password;
         User.find({ email: { $eq: email } })
             .then(users => {
                 if (users.length == 0) {
@@ -90,7 +122,7 @@ const password=req.params.password;
                     })
 
                     //שליחת הצופן לצד שרת בכניסה למערכת
-                    res.status(200).send({ userId:user._id,user: user, token })
+                    res.status(200).send({ userId: user._id, user: user, token })
                 })
             })
             .catch(error => {
@@ -98,5 +130,5 @@ const password=req.params.password;
             })
     },
 
-    
+
 }

@@ -64,6 +64,7 @@ module.exports = {
 
     payment: async (req, res) => {
         const orderId = req.params.id;
+        console.log(orderId);
         try {
             // מציאת ההזמנה וקבלת ה orderItems
             const order = await Order.findById(orderId).populate('orderItem');
